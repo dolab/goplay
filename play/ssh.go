@@ -127,8 +127,8 @@ func (c *SSHClient) ConnectWith(host string, dialer SSHDialFunc) error {
 	return nil
 }
 
-// Run runs the task.Run command on remote host.
-func (c *SSHClient) Run(task *Task) error {
+// Run runs the book.Run command on remote host.
+func (c *SSHClient) Run(book *Book) error {
 	if c.running {
 		return ErrRunning
 	}
@@ -158,19 +158,19 @@ func (c *SSHClient) Run(task *Task) error {
 		return c.lastError
 	}
 
-	if task.tty {
+	if book.tty {
 		c.lastError = c.createPseudoTerm(sess)
 		if c.lastError != nil {
-			c.lastError = ErrTask{task, fmt.Sprintf("Create pseudo terminal failed: %s", c.lastError.Error())}
+			c.lastError = ErrBook{book, fmt.Sprintf("Create pseudo terminal failed: %s", c.lastError.Error())}
 
 			return c.lastError
 		}
 	}
 
 	// Start the remote command.
-	c.lastError = sess.Start(c.env + task.run)
+	c.lastError = sess.Start(c.env + book.run)
 	if c.lastError != nil {
-		c.lastError = ErrTask{task, c.lastError.Error()}
+		c.lastError = ErrBook{book, c.lastError.Error()}
 
 		return c.lastError
 	}
@@ -266,7 +266,7 @@ func (c *SSHClient) Signal(sig os.Signal) error {
 func (c *SSHClient) Prompt() string {
 	symbol := c.symbol
 	if symbol == "" {
-		symbol = "-"
+		symbol = ">>>"
 	}
 
 	return fmt.Sprintf("[%s@%s] %s ", c.user, c.host, symbol)

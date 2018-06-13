@@ -135,7 +135,7 @@ type Command struct {
 	Run     string   `yaml:"run"`     // Command(s) to be run remotelly.
 	Script  string   `yaml:"script"`  // Load command(s) from script and run it remotelly.
 	Upload  []Upload `yaml:"upload"`  // See Upload struct.
-	Serial  int      `yaml:"serial"`  // Max number of clients processing a task in parallel.
+	Serial  int      `yaml:"serial"`  // Max number of clients processing a book in parallel.
 	Locally bool     `yaml:"locally"` // Command(s) to be run locally.
 	Stdin   bool     `yaml:"stdin"`   // Attach localhost STDOUT to remote commands' STDIN?
 	Once    bool     `yaml:"once"`    // The command should be run "once" (randomly on one host only).

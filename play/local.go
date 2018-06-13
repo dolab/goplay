@@ -45,13 +45,13 @@ func (c *LocalClient) Connect(_ string) error {
 	return c.lastError
 }
 
-// Run execs task on local
-func (c *LocalClient) Run(task *Task) error {
+// Run execs book on local
+func (c *LocalClient) Run(book *Book) error {
 	if c.running {
 		return ErrRunning
 	}
 
-	cmd := exec.Command("bash", "-c", c.env+task.run)
+	cmd := exec.Command("bash", "-c", c.env+book.run)
 
 	c.cmd = cmd
 
@@ -72,7 +72,7 @@ func (c *LocalClient) Run(task *Task) error {
 
 	c.lastError = c.cmd.Start()
 	if c.lastError != nil {
-		c.lastError = ErrTask{task, c.lastError.Error()}
+		c.lastError = ErrBook{book, c.lastError.Error()}
 
 		return c.lastError
 	}
@@ -82,7 +82,7 @@ func (c *LocalClient) Run(task *Task) error {
 	return nil
 }
 
-// Wait waits task to finish or return from error
+// Wait waits book to finish or return from error
 func (c *LocalClient) Wait() error {
 	if !c.running {
 		return ErrNotRunning

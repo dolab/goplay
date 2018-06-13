@@ -6,6 +6,8 @@ import (
 )
 
 var (
+	ErrEmptyClient  = errors.New("Client is empty.")
+	ErrEmptyCommand = errors.New("Command is empty.")
 	ErrRunning      = errors.New("Command alreay running.")
 	ErrNotRunning   = errors.New("Command not running or has finished.")
 	ErrConnected    = errors.New("Client has connected.")
@@ -27,14 +29,14 @@ func (e ErrConnect) Error() string {
 	return fmt.Sprintf(`Connect("%s@%s"): %s`, e.User, e.Host, e.Reason)
 }
 
-// ErrTask defines task error
-type ErrTask struct {
-	Task   *Task
+// ErrBook defines book error
+type ErrBook struct {
+	Book   *Book
 	Reason string
 }
 
-func (e ErrTask) Error() string {
-	return fmt.Sprintf(`Run task %v: %s`, e.Task, e.Reason)
+func (e ErrBook) Error() string {
+	return fmt.Sprintf(`Run book %v: %s`, e.Book, e.Reason)
 }
 
 // ErrPlayfileVersion defines error for unsupported playfile version

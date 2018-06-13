@@ -12,7 +12,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Play holds all tasks for running
+// Play holds all books for running
 type Play struct {
 	config *Playfile
 	prompt bool
@@ -31,7 +31,7 @@ func New(config *Playfile) (*Play, error) {
 //       to multiple smaller methods.
 func (play *Play) Run(network *Network, envs EnvVars, commands ...*Command) error {
 	if len(commands) == 0 {
-		return errors.New("no command to be run")
+		return ErrEmptyCommand
 	}
 
 	// Create bastion for every host (either SSH or Localhost).
@@ -67,7 +67,7 @@ func (play *Play) Run(network *Network, envs EnvVars, commands ...*Command) erro
 
 			default: // ssh client
 				remote := &SSHClient{
-					env:  clientEnv + `export PLAY_HOST="` + host + `";`,
+					env:  clientEnv + `export PLAY_HOST="` + MaskUserHostWithPasswd(host) + `";`,
 					user: network.User,
 				}
 
@@ -98,6 +98,7 @@ func (play *Play) Run(network *Network, envs EnvVars, commands ...*Command) erro
 			continue
 		}
 
+		// hook for ssh client
 		if remote, ok := client.(*SSHClient); ok {
 			defer remote.Close()
 		}
@@ -111,70 +112,77 @@ func (play *Play) Run(network *Network, envs EnvVars, commands ...*Command) erro
 	}
 
 	if len(clients) == 0 {
-		return errors.New("no client available")
+		return ErrEmptyClient
 	}
 
 	// Run commands defined by target sequentially.
+	// TODO: should gather all outputs and calc stats
 	for _, cmd := range commands {
-		// Translate command into task(s).
-		tasks, err := play.createTasks(clients, cmd, clientEnv)
+		// build book(s) from command.
+		books, err := play.createBooks(clients, cmd, clientEnv)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", errors.Wrap(err, fmt.Sprintf("creating task %v failed", cmd)))
+			Errorf("%v\n", errors.Wrapf(err, "creating book %v failed", cmd))
 
 			continue
 		}
 
-		// Run tasks sequentially.
-		for _, task := range tasks {
+		// Run books sequentially.
+		for _, book := range books {
 			var (
 				writers []io.Writer
-				taskWg  sync.WaitGroup
+				bookWg  sync.WaitGroup
 			)
 
-			// Run tasks on the provided clients.
-			for _, client := range task.clients {
-				err := client.Run(task)
+			// Run books on the provided clients.
+			for _, client := range book.clients {
+				err := client.Run(book)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s%v\n", PadStringWithTimestamp(client.Prompt(), maxPromptLen), errors.Wrap(err, fmt.Sprintf("running task %v failed", task)))
+					Errorf("%s%v\n", PadStringWithTimestamp(client.Prompt(), maxPromptLen), errors.Wrapf(err, "running book %v failed", book))
 
 					continue
 				}
 
-				// Copy over tasks's STDOUT.
-				taskWg.Add(1)
+				// Copy over book's STDOUT.
+				bookWg.Add(1)
 				go func(c Client) {
-					defer taskWg.Done()
+					defer bookWg.Done()
 
-					_, err := io.Copy(os.Stdout, prefixer.New(c.Stdout(), PadStringWithTimestamp(c.Prompt(), maxPromptLen)))
+					err := pcopy(
+						os.Stdout,
+						prefixer.New(c.Stdout(), PadStringWithTimestamp(c.Prompt(), maxPromptLen)),
+						pinfo)
 					if err != nil && err != io.EOF {
 						// TODO: io.Copy() should not return io.EOF at all.
 						// Upstream bug? Or prefixer.WriteTo() bug?
-						fmt.Fprintf(os.Stderr, "%s%v\n", PadStringWithTimestamp(c.Prompt(), maxPromptLen), errors.Wrap(err, "reading STDOUT failed"))
+						Errorf("%s%v\n", PadStringWithTimestamp(c.Prompt(), maxPromptLen), errors.Wrap(err, "reading STDOUT failed"))
 					}
 				}(client)
 
-				// Copy over tasks's STDERR.
-				taskWg.Add(1)
+				// Copy over book's STDERR.
+				bookWg.Add(1)
 				go func(c Client) {
-					defer taskWg.Done()
+					defer bookWg.Done()
 
-					_, err := io.Copy(os.Stderr, prefixer.New(c.Stderr(), PadStringWithTimestamp(c.Prompt(), maxPromptLen)))
+					err := pcopy(
+						os.Stderr,
+						prefixer.New(c.Stderr(), PadStringWithTimestamp(c.Prompt(), maxPromptLen)),
+						perror)
 					if err != nil && err != io.EOF {
-						fmt.Fprintf(os.Stderr, "%s%v\n", PadStringWithTimestamp(c.Prompt(), maxPromptLen), errors.Wrap(err, "reading STDERR failed"))
+						Errorf("%s%v\n", PadStringWithTimestamp(c.Prompt(), maxPromptLen), errors.Wrap(err, "reading STDERR failed"))
 					}
 				}(client)
 
 				writers = append(writers, client.Stdin())
 			}
 
-			// Copy over task's STDIN.
-			if task.input != nil {
+			// Copy over book's STDIN.
+			if book.input != nil {
 				go func() {
 					writer := io.MultiWriter(writers...)
 
-					_, err := io.Copy(writer, task.input)
+					_, err := io.Copy(writer, book.input)
 					if err != nil && err != io.EOF {
-						fmt.Fprintf(os.Stderr, "%v\n", errors.Wrap(err, "writing STDIN failed"))
+						Errorf("%v\n", errors.Wrap(err, "writing STDIN failed"))
 					}
 
 					// TODO: Use MultiWriteCloser (not in Stdlib), so we can writer.Close() instead?
@@ -195,10 +203,10 @@ func (play *Play) Run(network *Network, envs EnvVars, commands ...*Command) erro
 							return
 						}
 
-						for _, client := range task.clients {
+						for _, client := range book.clients {
 							err := client.Signal(sig)
 							if err != nil {
-								fmt.Fprintf(os.Stderr, "%s%v\n", PadStringWithTimestamp(client.Prompt(), maxPromptLen), errors.Wrap(err, "sending signal failed"))
+								Errorf("%s%v\n", PadStringWithTimestamp(client.Prompt(), maxPromptLen), errors.Wrapf(err, "sending signal %v failed", sig))
 							}
 						}
 					}
@@ -206,30 +214,33 @@ func (play *Play) Run(network *Network, envs EnvVars, commands ...*Command) erro
 			}()
 
 			// Wait for all I/O operations first.
-			taskWg.Wait()
+			bookWg.Wait()
 
-			// Make sure each client finishes the task, return on failure.
-			for _, client := range task.clients {
-				taskWg.Add(1)
+			// Make sure each client finishes the book, return on failure.
+			for _, client := range book.clients {
+				bookWg.Add(1)
 
 				go func(c Client) {
-					defer taskWg.Done()
+					defer bookWg.Done()
 
-					if err := c.Wait(); err != nil {
-						prompt := c.Prompt()
+					prompt := PadStringWithTimestamp(c.Prompt(), maxPromptLen)
 
+					err := c.Wait()
+					if err != nil {
 						// TODO: Store all the errors, and print them after Wait().
 						if e, ok := err.(*ssh.ExitError); ok && e.ExitStatus() != 15 {
-							fmt.Fprintf(os.Stderr, "%s%v\n%sexit status %v\n", PadStringWithTimestamp(prompt, maxPromptLen), e, PadStringWithTimestamp(prompt, maxPromptLen), e.ExitStatus())
+							Errorf("%s%v\n%sexit status %v\n", prompt, e, prompt, e.ExitStatus())
 						} else {
-							fmt.Fprintf(os.Stderr, "%s%v\n", PadStringWithTimestamp(prompt, maxPromptLen), err)
+							Errorf("%s%v\n", prompt, err)
 						}
+					} else {
+						Infof("%sDone!\n", prompt)
 					}
 				}(client)
 			}
 
 			// Wait for all commands to finish.
-			taskWg.Wait()
+			bookWg.Wait()
 
 			// Stop catching signals for the currently active clients.
 			signal.Stop(trap)

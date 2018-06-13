@@ -9,8 +9,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Task represents a set of commands to be run.
-type Task struct {
+// Book represents a set of commands to be run.
+type Book struct {
 	clients []Client
 	run     string
 	input   io.Reader
@@ -18,19 +18,19 @@ type Task struct {
 	tty     bool
 }
 
-func (play *Play) createTasks(clients []Client, cmd *Command, env string) (tasks []*Task, err error) {
-	var allTasks []*Task
+func (play *Play) createBooks(clients []Client, cmd *Command, env string) (books []*Book, err error) {
+	var allBooks []*Book
 
 	// Upload.
 	// Always run upload first.
 	if len(cmd.Upload) > 0 {
-		uploadTasks, uploadErr := play.createUploadTasks(clients, cmd.Upload, env)
+		uploadBooks, uploadErr := play.createUploadBooks(clients, cmd.Upload, env)
 		if uploadErr != nil {
-			err = errors.Wrap(uploadErr, "can't create upload task")
+			err = errors.Wrap(uploadErr, "can't create upload book")
 			return
 		}
 
-		allTasks = append(allTasks, uploadTasks...)
+		allBooks = append(allBooks, uploadBooks...)
 	}
 
 	// Script.
@@ -50,13 +50,13 @@ func (play *Play) createTasks(clients []Client, cmd *Command, env string) (tasks
 			clients = []Client{local}
 		}
 
-		scriptTasks, scriptErr := play.createShellTasks(clients, string(data), env, cmd.Stdin)
+		scriptBooks, scriptErr := play.createShellBooks(clients, string(data), env, cmd.Stdin)
 		if scriptErr != nil {
-			err = errors.Wrap(scriptErr, "can't create script task: "+string(data))
+			err = errors.Wrap(scriptErr, "can't create script book: "+string(data))
 			return
 		}
 
-		allTasks = append(allTasks, scriptTasks...)
+		allBooks = append(allBooks, scriptBooks...)
 	}
 
 	// Command.
@@ -69,47 +69,47 @@ func (play *Play) createTasks(clients []Client, cmd *Command, env string) (tasks
 			clients = []Client{local}
 		}
 
-		shellTasks, shellErr := play.createShellTasks(clients, cmd.Run, env, cmd.Stdin)
+		shellBooks, shellErr := play.createShellBooks(clients, cmd.Run, env, cmd.Stdin)
 		if shellErr != nil {
-			err = errors.Wrap(shellErr, "can't create shell task: "+cmd.Run)
+			err = errors.Wrap(shellErr, "can't create shell book: "+cmd.Run)
 			return
 		}
 
-		allTasks = append(allTasks, shellTasks...)
+		allBooks = append(allBooks, shellBooks...)
 	}
 
-	for _, task := range allTasks {
+	for _, book := range allBooks {
 		switch {
 		case cmd.Once: // TODO: try cmd over all of clients until one success?
-			task.clients = []Client{clients[0]}
-			task.once = cmd.Once
+			book.clients = []Client{clients[0]}
+			book.once = cmd.Once
 
-			tasks = append(tasks, task)
+			books = append(books, book)
 
-		case cmd.Serial > 0: // Each "serial" task client group is executed sequentially.
+		case cmd.Serial > 0: // Each "serial" book client group is executed sequentially.
 			for i := 0; i < len(clients); i += cmd.Serial {
 				j := i + cmd.Serial
 				if j > len(clients) {
 					j = len(clients)
 				}
 
-				copy := *task
+				copy := *book
 				copy.clients = clients[i:j]
 
-				tasks = append(tasks, &copy)
+				books = append(books, &copy)
 			}
 
 		default:
-			task.clients = clients
+			book.clients = clients
 
-			tasks = append(tasks, task)
+			books = append(books, book)
 		}
 	}
 
 	return
 }
 
-func (play *Play) createUploadTasks(clients []Client, uploads []Upload, env string) (tasks []*Task, err error) {
+func (play *Play) createUploadBooks(clients []Client, uploads []Upload, env string) (books []*Book, err error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		err = errors.Wrap(err, "os.Getwd() failed")
@@ -129,31 +129,31 @@ func (play *Play) createUploadTasks(clients []Client, uploads []Upload, env stri
 			return
 		}
 
-		task := Task{
+		book := Book{
 			run:   RemoteTarCommand(upload.Dst),
 			input: uploadTarReader,
 			tty:   false,
 		}
 
-		tasks = append(tasks, &task)
+		books = append(books, &book)
 	}
 
 	return
 }
 
-func (play *Play) createShellTasks(clients []Client, shell, env string, stdin bool) (tasks []*Task, err error) {
-	task := Task{
+func (play *Play) createShellBooks(clients []Client, shell, env string, stdin bool) (books []*Book, err error) {
+	book := Book{
 		run: shell,
 		tty: true,
 	}
 	if stdin {
-		task.input = os.Stdin
+		book.input = os.Stdin
 	}
 	if play.debug {
-		task.run = "set -x;" + task.run
+		book.run = "set -x;" + book.run
 	}
 
-	tasks = append(tasks, &task)
+	books = append(books, &book)
 
 	return
 }
