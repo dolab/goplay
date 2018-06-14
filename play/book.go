@@ -23,8 +23,8 @@ func (play *Play) createBooks(clients []Client, cmd *Command, env string) (books
 
 	// Upload.
 	// Always run upload first.
-	if len(cmd.Upload) > 0 {
-		uploadBooks, uploadErr := play.createUploadBooks(clients, cmd.Upload, env)
+	if len(cmd.Uploads) > 0 {
+		uploadBooks, uploadErr := play.createUploadBooks(clients, cmd.Uploads, env)
 		if uploadErr != nil {
 			err = errors.Wrap(uploadErr, "can't create upload book")
 			return
@@ -109,7 +109,7 @@ func (play *Play) createBooks(clients []Client, cmd *Command, env string) (books
 	return
 }
 
-func (play *Play) createUploadBooks(clients []Client, uploads []Upload, env string) (books []*Book, err error) {
+func (play *Play) createUploadBooks(clients []Client, uploads map[string]Upload, env string) (books []*Book, err error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		err = errors.Wrap(err, "os.Getwd() failed")
@@ -123,7 +123,7 @@ func (play *Play) createUploadBooks(clients []Client, uploads []Upload, env stri
 			return
 		}
 
-		uploadTarReader, uploadTarErr := NewTarStreamReader(cwd, uploadFile, upload.Exc)
+		uploadTarReader, uploadTarErr := NewTarStreamReader(cwd, uploadFile, upload.Filter)
 		if uploadTarErr != nil {
 			err = errors.Wrap(uploadTarErr, "create tar stream of local path failed: "+upload.Src)
 			return
