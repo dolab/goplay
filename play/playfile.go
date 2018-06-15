@@ -25,20 +25,9 @@ type Playfile struct {
 func NewPlayfile(data []byte) (*Playfile, error) {
 	var config Playfile
 
-	if err := yaml.Unmarshal(data, &config); err != nil {
+	err := yaml.Unmarshal(bytes.Replace(data, []byte("\t"), []byte("  "), -1), &config)
+	if err != nil {
 		return nil, err
-	}
-
-	// API backward compatibility. Will be deprecated in v1.0.
-	switch config.Version {
-	case "":
-		config.Version = "1.0.0"
-
-	case "1.0.0":
-		// ignore
-
-	default:
-		return nil, ErrPlayfileVersion{"Invalid Playfile version: " + config.Version}
 	}
 
 	return &config, nil
