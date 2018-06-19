@@ -5,12 +5,12 @@ import (
 )
 
 var (
-	Play *_Play
+	Config *_Config
 )
 
-type _Play struct{}
+type _Config struct{}
 
-func (_ *_Play) Run() cli.ActionFunc {
+func (_ *_Config) Init() cli.ActionFunc {
 	return func(ctx *cli.Context) error {
 		return nil
 	}

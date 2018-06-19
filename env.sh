@@ -3,7 +3,7 @@
 # try to adjust dependences
 export APPROOT=$(pwd)
 
-if [[ -n "$ZSH_VERSION" ]]; 
+if [[ -n "$ZSH_VERSION" ]];
 then
     readopts="rA"
 else
@@ -37,5 +37,5 @@ export PATH
 if [[ ! -d "$(pwd)/src/github.com/dolab/goplay" ]];
 then
     mkdir -p "$(pwd)/src/github.com/dolab"
-    ln -s "$(pwd)" "$(pwd)/src/github.com/dolab/goplay"
+    ln -s "$(pwd)/goplay" "$(pwd)/src/github.com/dolab/goplay"
 fi
