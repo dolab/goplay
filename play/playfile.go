@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -31,6 +33,16 @@ func NewPlayfile(data []byte) (*Playfile, error) {
 	}
 
 	return &config, nil
+}
+
+// NewPlayfileFromFile returns *Playfile by parsing filename given or error
+func NewPlayfileFromFile(filename string) (*Playfile, error) {
+	data, err := ioutil.ReadFile(path.Clean(filename))
+	if err != nil {
+		return nil, err
+	}
+
+	return NewPlayfile(data)
 }
 
 // Network is group of hosts with extra custom env vars.
