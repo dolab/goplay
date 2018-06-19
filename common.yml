@@ -1,0 +1,5 @@
+---
+- name: base enviroment config
+  hosts: hosts
+  roles:
+    - common

@@ -1,0 +1,17 @@
+[all]
+kodoe-1 ansible_host=123.59.204.236 ansible_port=22 ansible_user=root ansible_ssh_private_key_file=~/.ssh/testing_rsa
+
+[monogdb]
+
+[app]
+kodoe-1 ansible_host=123.59.204.236 ansible_port=22 ansible_user=root ansible_ssh_private_key_file=~/.ssh/testing_rsa
+
+[db]
+kodoe-1 ansible_host=123.59.204.236 ansible_port=22 ansible_user=root ansible_ssh_private_key_file=~/.ssh/testing_rsa
+
+[pfd]
+kodoe-1 ansible_host=123.59.204.236 ansible_port=22 ansible_user=root ansible_ssh_private_key_file=~/.ssh/testing_rsa
+
+[ebd]
+kodoe-1 ansible_host=123.59.204.236 ansible_port=22 ansible_user=root ansible_ssh_private_key_file=~/.ssh/testing_rsa
+
