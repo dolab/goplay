@@ -55,6 +55,7 @@ type Network struct {
 	// Should these live on Hosts too? We'd have to change []string to struct, even in Playfile.
 	User         string `yaml:"user"`
 	Passwd       string `yaml:"passwd"`
+	Port         int    `yaml:"port"`
 	IdentityFile string `yaml:"identity_file"`
 }
 
