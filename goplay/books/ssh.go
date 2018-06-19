@@ -1,9 +1,13 @@
 package books
 
 import (
+	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"os/user"
 	"path"
 	"strconv"
 	"strings"
@@ -11,6 +15,7 @@ import (
 	"github.com/dolab/goplay/play"
 	"github.com/dolab/logger"
 	"github.com/golib/cli"
+	"golang.org/x/crypto/ssh"
 )
 
 var (
@@ -19,8 +24,46 @@ var (
 
 type _SSH struct{}
 
-func (_ *_SSH) Generate() cli.ActionFunc {
+func (_ *_SSH) Init(log *logger.Logger) cli.ActionFunc {
 	return func(ctx *cli.Context) error {
+		name := ctx.String("name")
+		if name == "" {
+			name = "ansible"
+		}
+
+		bitSize := ctx.Int("bit-size")
+		if bitSize%1024 != 0 || bitSize == 0 {
+			bitSize = 4096
+		}
+
+		sshKey, err := generatePrivateKey(bitSize)
+		if err != nil {
+			log.Errorf("generate ssh private key (%d bits): %v", bitSize, err)
+
+			return err
+		}
+
+		privateKey := encodePrivateKeyToPEM(sshKey)
+
+		publicKey, err := generatePublicKey(&sshKey.PublicKey)
+		if err != nil {
+			log.Errorf("generate ssh public key: %v", err)
+
+			return err
+		}
+
+		if err := ioutil.WriteFile(path.Join(absroot, name+"_rsa"), privateKey, 0600); err != nil {
+			log.Errorf("ioutil.WriteFile(%s, ?, 0600): %v", path.Join(absroot, name+"_rsa"), err)
+
+			return err
+		}
+
+		if err := ioutil.WriteFile(path.Join(absroot, name+"_rsa.pub"), publicKey, 0600); err != nil {
+			log.Errorf("ioutil.WriteFile(%s, ?, 0600): %v", path.Join(absroot, name+"_rsa.pub"), err)
+
+			return err
+		}
+
 		return nil
 	}
 }
@@ -28,35 +71,18 @@ func (_ *_SSH) Generate() cli.ActionFunc {
 func (_ *_SSH) Setup(log *logger.Logger) cli.ActionFunc {
 	return func(ctx *cli.Context) (err error) {
 		// hosts definitions
-		filename := ctx.String("hosts")
-		if filename == "" {
+		hostfile := ctx.String("hostfile")
+		if hostfile == "" {
 			cli.ShowSubcommandHelp(ctx)
 
-			return cli.NewExitError("hosts is required", 04)
+			return cli.NewExitError("hostfile is required", 04)
 		}
-		if strings.HasPrefix(filename, "~/") {
-			cu, err := user.Current()
-			if err == nil {
-				filename = strings.Replace(filename, "~", cu.HomeDir, 1)
-			}
-		}
+		hostfile = abspath(hostfile)
 
-		lines, err := ioutil.ReadFile(path.Clean(filename))
+		lines, err := ioutil.ReadFile(hostfile)
 		if err != nil {
-			return
-		}
+			log.Errorf("ioutil.ReadFile(%s): %v", hostfile, err)
 
-		// public key file
-		keyfile := path.Clean(ctx.GlobalString("keyfile"))
-		if strings.HasPrefix(keyfile, "~/") {
-			cu, err := user.Current()
-			if err == nil {
-				keyfile = strings.Replace(keyfile, "~", cu.HomeDir, 1)
-			}
-		}
-
-		publicKey, err := ioutil.ReadFile(keyfile)
-		if err != nil {
 			return
 		}
 
@@ -80,14 +106,29 @@ func (_ *_SSH) Setup(log *logger.Logger) cli.ActionFunc {
 			return cli.NewMultiError(errs...)
 		}
 
-		network := play.Network{
-			Hosts: hosts,
+		// public key file
+		keyfile := ctx.GlobalString("keyfile")
+		if keyfile == "" {
+			keyfile = identityfile
 		}
+		keyfile = abspath(keyfile)
+
+		publicKey, err := ioutil.ReadFile(keyfile)
+		if err != nil {
+			log.Errorf("ioutil.ReadFile(%s): %v", keyfile, err)
+
+			return
+		}
+
+		// goplay
 		envs := play.EnvVars{
 			{
 				Key:   "PUB_KEY",
 				Value: string(publicKey),
 			},
+		}
+		network := play.Network{
+			Hosts: hosts,
 		}
 		command := play.Command{
 			Name:  "setup ssh trust",
@@ -103,7 +144,28 @@ func (_ *_SSH) Setup(log *logger.Logger) cli.ActionFunc {
 		player.Prompt(ctx.GlobalBool("prompt"))
 		player.Debug(ctx.GlobalBool("debug"))
 
-		return player.Run(&network, envs, &command)
+		err = player.Run(&network, envs, &command)
+		if err != nil {
+			return
+		}
+
+		// generate default playfile
+		for i, host := range hosts {
+			hosts[i] = strings.SplitN(host, "@", 2)[1]
+		}
+
+		var buf bytes.Buffer
+		err = playfiletpl.Execute(&buf, map[string]string{
+			"hosts":         "- " + strings.Join(hosts, "\n  - "),
+			"identity_file": keyfile,
+		})
+		if err != nil {
+			log.Errorf("playfile.Execute(): %v", err)
+
+			return err
+		}
+
+		return ioutil.WriteFile(playfile, buf.Bytes(), 0755)
 	}
 }
 
@@ -126,4 +188,52 @@ func isValidUserHostWithPasswd(host string) bool {
 	}
 
 	return true
+}
+
+// generatePrivateKey creates a RSA Private Key of specified byte size
+func generatePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
+	// Private Key generation
+	privateKey, err := rsa.GenerateKey(rand.Reader, bitSize)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate Private Key
+	err = privateKey.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	return privateKey, nil
+}
+
+// encodePrivateKeyToPEM encodes Private Key from RSA to PEM format
+func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
+	// Get ASN.1 DER format
+	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
+
+	// pem.Block
+	privBlock := pem.Block{
+		Type:    "RSA PRIVATE KEY",
+		Headers: nil,
+		Bytes:   privDER,
+	}
+
+	// Private key in PEM format
+	privatePEM := pem.EncodeToMemory(&privBlock)
+
+	return privatePEM
+}
+
+// generatePublicKey take a rsa.PublicKey and return bytes suitable for writing to .pub file
+// returns in the format "ssh-rsa ..."
+func generatePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
+	publicRsaKey, err := ssh.NewPublicKey(privatekey)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKeyBytes := ssh.MarshalAuthorizedKey(publicRsaKey)
+
+	return pubKeyBytes, nil
 }

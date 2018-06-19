@@ -10,10 +10,11 @@ import (
 )
 
 var (
+	root = "~/.goplay"
+
 	playfile string
 	keyfile  string
-
-	log *logger.Logger
+	log      *logger.Logger
 )
 
 func init() {
@@ -64,50 +65,38 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
-			Name:    "ssh",
-			Aliases: []string{"ssh"},
-			Usage:   "ssh management for ansible",
+			Name:  "ssh",
+			Usage: "ssh management for ansible",
 			Subcommands: []cli.Command{
 				{
-					Name:    "generate",
-					Aliases: []string{"gen"},
-					Usage:   "generate SSH RSA Private/Public Key pair",
+					Name:  "init",
+					Usage: "generate SSH RSA Private/Public Key pair",
 					Flags: []cli.Flag{
 						cli.StringFlag{
 							Name:  "name",
-							Usage: "Supply name of ssh key file",
+							Usage: "Supply `NAME` of ssh key file",
+							Value: "ansible",
+						},
+						cli.IntFlag{
+							Name:  "bit-size",
+							Usage: "Supply security of ssh keypair",
+							Value: 4096,
 						},
 					},
-					Action: books.SSH.Generate(),
+					Action: books.SSH.Init(log),
 				},
 				{
 					Name:  "setup",
 					Usage: "setup ssh trust of all hosts",
 					Flags: []cli.Flag{
 						cli.StringFlag{
-							Name:  "hosts",
+							Name:  "hostfile",
 							Usage: "Supply hosts list `FILE`, formed in user:passwd@ip for each line",
 						},
 					},
 					Action: books.SSH.Setup(log),
 				},
 			},
-		},
-		{
-			Name:    "play",
-			Aliases: []string{"run"},
-			Usage:   "run playbook(s)",
-			Flags: []cli.Flag{
-				cli.StringSliceFlag{
-					Name:  "group",
-					Usage: "Supply group(s) for playbook(s) target",
-				},
-				cli.StringFlag{
-					Name:  "ssh-config",
-					Usage: "Supply ssh config for custom SSH config",
-				},
-			},
-			Action: books.Play.Run(),
 		},
 	}
 

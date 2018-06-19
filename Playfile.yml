@@ -1,0 +1,86 @@
+---
+version: 1.0.0
+
+# Global variables
+user: &user
+  user: root
+  port: 22
+  identity_file: {{ .identity_file }}
+
+hosts: &hosts
+  {{ .hosts }}
+
+all_hosts: &all_hosts
+  <<: *user
+  hosts:
+    <<: *hosts
+
+app_hosts: &app_hosts
+  <<: *user
+  hosts:
+    <<: *hosts
+
+db_hosts: &db_hosts
+  <<: *user
+  hosts:
+    <<: *hosts
+
+pfd_hosts: &pfd_hosts
+  <<: *user
+  hosts:
+    <<: *hosts
+
+ebd_hosts: &ebd_hosts
+  <<: *user
+  hosts:
+    <<: *hosts
+
+# Global environs
+envs:
+  env-key: env-value
+
+networks:
+  all:
+    <<: *all_hosts
+
+  app:
+    <<: *app_hosts
+
+  db:
+    <<: *db_hosts
+
+  pfd:
+    <<: *pfd_hosts
+
+  ebd:
+    <<: *ebd_hosts
+
+  ebdmaster:
+    <<: *ebd_hosts
+    <<: *ebd1_hosts
+
+  ebdslave:
+    <<: *ebd_hosts
+
+commands:
+  echo:
+    desc: Print some env vars
+    run: echo $PLAY_NETWORK
+
+  date:
+    desc: Print OS name and current date/time
+    run: uname -a; date
+
+  assets:
+    uploads:
+      vimrc:
+        src: ~/.vimrc
+        dst: /home/deploy/.vimrc
+      bash_profile:
+        src: ~/.bash_profile
+        dst: /home/deploy/.bash_profile
+
+books:
+  all:
+    - echo
+    - date
