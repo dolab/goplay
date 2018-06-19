@@ -16,14 +16,18 @@ var (
 	playfiletpl  = template.Must(template.ParseFiles("./Playfile.yml"))
 
 	// ansible
-	rversion       = regexp.MustCompile(`^ansible +?([\d.]+?)[\d.]*?`)
-	defaultVersion = "2"
+	rversion          = regexp.MustCompile(`^ansible +?([\d.]+?)[\d.]*?`)
+	rconfig           = regexp.MustCompile(`config file\W*?=\W*?([\w/.]+)`)
+	rinventory        = regexp.MustCompile(`#?inventory\W*?=\W*?[\w/.]+`)
+	defaultVersion    = "2"
+	defaultConfigFile = path.Join(absroot, "ansible.cfg")
 )
 
 func init() {
 	absroot = abspath(absroot)
 	identityfile = abspath(identityfile)
 	playfile = abspath(playfile)
+	defaultConfigFile = abspath(defaultConfigFile)
 
 	err := os.MkdirAll(absroot, 0755)
 	if err != nil {

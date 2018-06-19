@@ -50,14 +50,24 @@ func (_ *_Ansible) Setup(log *logger.Logger) cli.ActionFunc {
 
 		// try to resolve ansilbe version for ssh config
 		ansibleVersion := "2"
+		ansibleConfig := defaultConfigFile
 
 		cmd := exec.Command("bash", "-c", "ansible --version")
 		if data, err := cmd.Output(); err == nil {
+			// version
 			matches := rversion.FindStringSubmatch(string(data))
 			if len(matches) == 2 {
 				ansibleVersion = matches[1]
 			} else {
 				log.Warnf("CANNOT resolve ansible version, use default of %v.0", ansibleVersion)
+			}
+
+			// config file
+			matches = rconfig.FindStringSubmatch(string(data))
+			if len(matches) == 2 {
+				ansibleConfig = matches[1]
+			} else {
+				log.Warnf("CANNOT resolve ansible config file, use default of %v", ansibleConfig)
 			}
 		} else {
 			log.Errorf("Failed to resolve ansible version: %v (default to %v.0)", err, ansibleVersion)
@@ -83,6 +93,15 @@ func (_ *_Ansible) Setup(log *logger.Logger) cli.ActionFunc {
 			buf.WriteRune('\n')
 		}
 
-		return ioutil.WriteFile(filename, buf.Bytes(), 0644)
+		err = ioutil.WriteFile(filename, buf.Bytes(), 0644)
+		if err != nil {
+			log.Errorf("ioutil.WriteFile(%s): %v", filename, err)
+
+			return err
+		}
+
+		// TODO: try to update ansible.cfg
+
+		return nil
 	}
 }
