@@ -98,6 +98,29 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:  "ansible",
+			Usage: "ansible initializations",
+			Subcommands: []cli.Command{
+				{
+					Name:  "setup",
+					Usage: "setup ansible inventory",
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "inventory",
+							Usage: "Supply path to ansible inventory file",
+							Value: "~/.goplay/ansible_hosts",
+						},
+						cli.StringFlag{
+							Name:  "hostname",
+							Usage: "Supply hostname prefix for all hosts",
+							Value: "kodoe",
+						},
+					},
+					Action: books.Ansible.Setup(log),
+				},
+			},
+		},
 	}
 
 	err := app.Run(os.Args)

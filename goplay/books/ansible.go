@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os/exec"
-	"path"
-	"regexp"
 
 	"github.com/dolab/goplay/play"
 	"github.com/dolab/logger"
@@ -15,22 +13,19 @@ import (
 
 var (
 	Ansible *_Ansible
-
-	rversion       = regexp.MustCompile(`^ansible +?([\d.]+?)[\d.]*?`)
-	defaultVersion = "2"
 )
 
 type _Ansible struct{}
 
 func (_ *_Ansible) Setup(log *logger.Logger) cli.ActionFunc {
 	return func(ctx *cli.Context) error {
-		playfile := ctx.GlobalString("playfile")
-		filename := ctx.String("filename")
-		if playfile == "" || filename == "" {
+		filename := ctx.String("inventory")
+		if filename == "" {
 			cli.ShowCommandHelp(ctx, "setup")
 
-			return cli.NewExitError("Both playfile and filename are required", 04)
+			return cli.NewExitError("Both playfile and inventory are required", 04)
 		}
+		filename = abspath(filename)
 
 		pfile, err := play.NewPlayfileFromFile(playfile)
 		if err != nil {
@@ -88,6 +83,6 @@ func (_ *_Ansible) Setup(log *logger.Logger) cli.ActionFunc {
 			buf.WriteRune('\n')
 		}
 
-		return ioutil.WriteFile(path.Clean(filename), buf.Bytes(), 0644)
+		return ioutil.WriteFile(filename, buf.Bytes(), 0644)
 	}
 }

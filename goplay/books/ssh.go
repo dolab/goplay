@@ -156,7 +156,7 @@ func (_ *_SSH) Setup(log *logger.Logger) cli.ActionFunc {
 
 		var buf bytes.Buffer
 		err = playfiletpl.Execute(&buf, map[string]string{
-			"hosts":         "- " + strings.Join(hosts, "\n  - "),
+			"hosts":         "- " + strings.Join(hosts, "\n    - "),
 			"identity_file": keyfile,
 		})
 		if err != nil {

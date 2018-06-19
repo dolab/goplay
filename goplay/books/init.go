@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"regexp"
 	"strings"
 	"text/template"
 )
@@ -13,6 +14,10 @@ var (
 	identityfile = path.Join(absroot, "ansible_rsa.pub")
 	playfile     = path.Join(absroot, "Playfile.yml")
 	playfiletpl  = template.Must(template.ParseFiles("./Playfile.yml"))
+
+	// ansible
+	rversion       = regexp.MustCompile(`^ansible +?([\d.]+?)[\d.]*?`)
+	defaultVersion = "2"
 )
 
 func init() {
