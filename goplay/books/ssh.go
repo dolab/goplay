@@ -165,7 +165,14 @@ func (_ *_SSH) Setup(log *logger.Logger) cli.ActionFunc {
 			return err
 		}
 
-		return ioutil.WriteFile(playfile, buf.Bytes(), 0755)
+		err = ioutil.WriteFile(playfile, buf.Bytes(), 0755)
+		if err != nil {
+			log.Errorf("ioutil.WriteFile(%s): %v", playfile, err)
+
+			return err
+		}
+
+		return nil
 	}
 }
 
