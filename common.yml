@@ -1,5 +1,4 @@
 ---
-- name: base enviroment config
-  hosts: hosts
+- hosts: app
   roles:
     - common

@@ -1,0 +1,8 @@
+---
+- name: copy vimrc
+  copy:
+    src: vimrc
+    dest: /home/qboxserver/.vimrc
+    mode: 755
+    owner: qboxserver
+    group: qboxserver

@@ -1,0 +1,6 @@
+---
+- name: create qboxserver group
+  group:
+    name: qboxserver
+    gid: 2003
+    state: present

@@ -1,0 +1,12 @@
+---
+- name: create qboxserver user
+  user:
+    name: qboxserver
+    uid: 2003
+    group: qboxserver
+    system: false
+    create_home: true
+    shell: /bin/bash
+    state: present
+  notify:
+    - copy vimrc

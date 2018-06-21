@@ -1,0 +1,25 @@
+syntax on
+filetype plugin indent on
+
+set background=light
+set t_Co=256
+
+set nocompatible
+set number
+set incsearch
+
+set autoindent
+set smartindent
+
+set tabstop=2
+set shiftwidth=2
+set smarttab
+set expandtab
+set softtabstop=2
+
+set showmatch
+
+set ruler
+set statusline=%<%F\ %h%m%r%=%-14.(%l,%c%V%)\ %P
+
+autocmd BufWritePre * :%s/\s\+$//e
